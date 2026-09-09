@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Módulo de Enfermería</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body class="bg-light">
+
+<div class="container py-4">
+    <h1 class="mb-4 text-center text-primary">Gestión de Procedimientos de Enfermería</h1>
+
+    <div class="row g-4">
+        <!-- Formulario de Registro (RF-ENF-25) -->
+        <div class="col-md-5">
+            <div class="card shadow-sm">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="card-title mb-0">Registrar Procedimiento</h5>
+                </div>
+                <div class="card-body">
+                    <form id="formRegistro">
+                        <div class="mb-2">
+                            <label class="form-label">ID Paciente</label>
+                            <input type="number" id="pacienteId" class="form-control" value="1" required>
+                        </div>
+                        <div class="mb-2">
+                            <label class="form-label">ID Enfermero</label>
+                            <input type="number" id="enfermeroId" class="form-control" value="1" required>
+                        </div>
+                        <div class="mb-2">
+                            <label class="form-label">Tipo de Procedimiento</label>
+                            <input type="text" id="tipoProcedimiento" class="form-control" placeholder="Ej: Curación de herida" required>
+                        </div>
+                        <div class="mb-2">
+                            <label class="form-label">Descripción</label>
+                            <textarea id="descripcion" class="form-control" rows="2" required></textarea>
+                        </div>
+                        <div class="mb-2">
+                            <label class="form-label">Insumos Utilizados</label>
+                            <input type="text" id="insumosUtilizados" class="form-control" placeholder="Ej: Gasas, alcohol" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Estado</label>
+                            <select id="estado" class="form-select">
+                                <option value="COMPLETADO">COMPLETADO</option>
+                                <option value="EN_PROCESO">EN_PROCESO</option>
+                                <option value="CANCELADO">CANCELADO</option>
+                            </select>
+                        </div>
+                        <button type="submit" class="btn btn-success w-100">Guardar Procedimiento</button>
+                    </form>
+                    <div id="mensajeRegistro" class="mt-3"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Historial por Paciente (RF-ENF-27) -->
+        <div class="col-md-7">
+            <div class="card shadow-sm mb-4">
+                <div class="card-header bg-secondary text-white">
+                    <h5 class="card-title mb-0">Consultar Historial</h5>
+                </div>
+                <div class="card-body">
+                    <div class="input-group mb-3">
+                        <input type="number" id="buscarPacienteId" class="form-control" placeholder="Ingrese ID del Paciente" value="1">
+                        <button class="btn btn-primary" onclick="consultarHistorial()">Buscar Historial</button>
+                    </div>
+
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle">
+                            <thead class="table-dark">
+                            <tr>
+                                <th>Fecha</th>
+                                <th>Tipo</th>
+                                <th>Descripción</th>
+                                <th>Insumos</th>
+                                <th>Estado</th>
+                            </tr>
+                            </thead>
+                            <tbody id="tablaHistorial">
+                            <tr>
+                                <td colspan="5" class="text-center text-muted">Realice una búsqueda para cargar los datos.</td>
+                            </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const API_URL = '/api/enfermeria/procedimientos';
+
+    // RF-ENF-25: Registrar procedimiento
+    document.getElementById('formRegistro').addEventListener('submit', async (e) => {
+        e.preventDefault();
+
+        const data = {
+            pacienteId: Number(document.getElementById('pacienteId').value),
+            enfermeroId: Number(document.getElementById('enfermeroId').value),
+            tipoProcedimiento: document.getElementById('tipoProcedimiento').value,
+            descripcion: document.getElementById('descripcion').value,
+            insumosUtilizados: document.getElementById('insumosUtilizados').value,
+            estado: document.getElementById('estado').value
+        };
+
+        try {
+            const res = await fetch(API_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            });
+
+            if (res.ok) {
+                document.getElementById('mensajeRegistro').innerHTML =
+                    `<div class="alert alert-success p-2">¡Procedimiento registrado con éxito!</div>`;
+                document.getElementById('formRegistro').reset();
+                consultarHistorial(); // Actualiza la tabla automáticamente
+            } else {
+                throw new Error();
+            }
+        } catch (err) {
+            document.getElementById('mensajeRegistro').innerHTML =
+                `<div class="alert alert-danger p-2">Error al registrar el procedimiento.</div>`;
+        }
+    });
+
+    // RF-ENF-27: Consultar historial de un paciente
+    async function consultarHistorial() {
+        const pacienteId = document.getElementById('buscarPacienteId').value;
+        const tbody = document.getElementById('tablaHistorial');
+
+        if (!pacienteId) return;
+
+        try {
+            const res = await fetch(`${API_URL}/paciente/${pacienteId}`);
+            const historial = await res.json();
+
+            if (historial.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="5" class="text-center">No hay registros para este paciente.</td></tr>`;
+                return;
+            }
+
+            tbody.innerHTML = historial.map(item => `
+                <tr>
+                    <td><small>${new Date(item.fechaHora).toLocaleString()}</small></td>
+                    <td><strong>${item.tipoProcedimiento}</strong></td>
+                    <td>${item.descripcion}</td>
+                    <td><small>${item.insumosUtilizados}</small></td>
+                    <td><span class="badge ${item.estado === 'COMPLETADO' ? 'bg-success' : 'bg-warning'}">${item.estado}</span></td>
+                </tr>
+            `).join('');
+
+        } catch (err) {
+            tbody.innerHTML = `<tr><td colspan="5" class="text-center text-danger">Error al cargar el historial.</td></tr>`;
+        }
+    }
+
+    // Cargar historial por defecto al abrir la página
+    consultarHistorial();
+</script>
+
+</body>
+</html>
